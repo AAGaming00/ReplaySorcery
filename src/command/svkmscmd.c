@@ -40,7 +40,6 @@ static int kmsConnection(RSSocket *sock) {
    int ret;
    RSServiceDeviceInfo info;
    char *deviceName = NULL;
-   RSDevice device = {0};
    AVFrame *frame = av_frame_alloc();
    if (frame == NULL) {
       ret = AVERROR(ENOMEM);
@@ -58,6 +57,9 @@ static int kmsConnection(RSSocket *sock) {
    if ((ret = rsSocketReceive(sock, info.deviceLength, deviceName, 0, NULL)) < 0) {
       goto error;
    }
+startup:
+
+   RSDevice device = {0};
 
    av_log(NULL, AV_LOG_INFO, "Framerate = %i, Device = %s\n", info.framerate, deviceName);
    if ((ret = rsKmsDeviceCreate(&device, deviceName, info.framerate)) < 0) {
@@ -82,6 +84,13 @@ static int kmsConnection(RSSocket *sock) {
          goto error;
       }
       if (pts < 0) {
+         if (pts == -5) {
+            av_log(NULL, AV_LOG_INFO, "Ignoring I/O error", info.framerate, deviceName);
+            rsDeviceDestroy(&device);
+            goto startup;
+            // av_freep(&deviceName);
+            // av_frame_free(&frame);
+         }
          continue;
       }
 
