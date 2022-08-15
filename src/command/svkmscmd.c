@@ -38,9 +38,12 @@ static void kmsSignal(int sig) {
 
 static int kmsConnection(RSSocket *sock) {
    int ret;
+   AVFrame *frame = av_frame_alloc();
+
+// startup:
    RSServiceDeviceInfo info;
    char *deviceName = NULL;
-   AVFrame *frame = av_frame_alloc();
+   RSDevice device = {0};
    if (frame == NULL) {
       ret = AVERROR(ENOMEM);
       goto error;
@@ -57,9 +60,6 @@ static int kmsConnection(RSSocket *sock) {
    if ((ret = rsSocketReceive(sock, info.deviceLength, deviceName, 0, NULL)) < 0) {
       goto error;
    }
-startup:
-
-   RSDevice device = {0};
 
    av_log(NULL, AV_LOG_INFO, "Framerate = %i, Device = %s\n", info.framerate, deviceName);
    if ((ret = rsKmsDeviceCreate(&device, deviceName, info.framerate)) < 0) {
@@ -80,18 +80,34 @@ startup:
       } else {
          pts = frame->pts;
       }
-      if ((ret = rsSocketSend(sock, sizeof(int64_t), &pts, 0, NULL)) < 0) {
-         goto error;
-      }
       if (pts < 0) {
          if (pts == -5) {
-            av_log(NULL, AV_LOG_INFO, "Ignoring I/O error", info.framerate, deviceName);
+            av_log(NULL, AV_LOG_INFO, "Ignoring I/O error\n");
             rsDeviceDestroy(&device);
-            goto startup;
+            av_frame_unref(frame);
+            if ((ret = rsKmsDeviceCreate(&device, deviceName, info.framerate)) < 0) {
+               goto error;
+            }
+            hwFramesCtx = (AVHWFramesContext *)device.hwFrames->data;
+            drmDeviceCtx = hwFramesCtx->device_ctx->hwctx;
             // av_freep(&deviceName);
             // av_frame_free(&frame);
+            // return AVERROR(EAGAIN);
+            // rsDeviceDestroy(&device);
+            // av_freep(&deviceName);
+            // // goto startup;
+            // return 1230;
+            // av_frame_free(&frame);
+            continue;
+         } else {
+            if ((ret = rsSocketSend(sock, sizeof(int64_t), &pts, 0, NULL)) < 0) {
+               goto error;
+            }
          }
          continue;
+      }
+      if ((ret = rsSocketSend(sock, sizeof(int64_t), &pts, 0, NULL)) < 0) {
+         goto error;
       }
 
       int objects[AV_DRM_MAX_PLANES];
@@ -141,7 +157,10 @@ int rsKmsService(void) {
          }
       }
 
-      ret = kmsConnection(&conn);
+      // do {
+         ret = kmsConnection(&conn);
+      // } while (ret != 0 && ret != AVERROR(EAGAIN));
+
       rsSocketDestroy(&conn);
       if (ret < 0) {
          av_log(NULL, AV_LOG_WARNING, "Disconnected: %s\n", av_err2str(ret));

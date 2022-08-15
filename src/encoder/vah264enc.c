@@ -38,8 +38,7 @@ int rsVaapiH264EncoderCreate(RSEncoder *encoder, const AVCodecParameters *params
    rsScaleSize(&scaleWidth, &scaleHeight);
    if ((ret = rsFFmpegEncoderCreate(
             encoder, "h264_vaapi",
-            "hwmap=derive_device=vaapi,crop=%i:%i:%i:%i,scale_vaapi=%i:%i:nv12", width,
-            height, rsConfig.videoX, rsConfig.videoY, scaleWidth, scaleHeight)) < 0) {
+            "hwmap=derive_device=vaapi,scale_vaapi=%i:%i:nv12:force_original_aspect_ratio=increase", rsConfig.videoWidth, rsConfig.videoHeight)) < 0) {
       goto error;
    }
 
