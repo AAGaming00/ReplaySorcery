@@ -73,7 +73,7 @@ static int kmsCardDevices(int index) {
          continue;
       }
 
-      drmModeFB *framebuffer = drmModeGetFB(drmDevice->fd, plane->fb_id);
+      drmModeFB2 *framebuffer = drmModeGetFB2(drmDevice->fd, plane->fb_id);
       drmModeFreePlane(plane);
       if (framebuffer == NULL) {
          ret = AVERROR(errno);
@@ -83,8 +83,8 @@ static int kmsCardDevices(int index) {
       }
 
       av_log(NULL, AV_LOG_INFO,
-             "card%i:%" PRIu32 " (%" PRIu32 "x%" PRIu32 "x%" PRIu32 ")\n", index, planeID,
-             framebuffer->width, framebuffer->height, framebuffer->depth);
+             "card%i:%" PRIu32 " (%" PRIu32 "x%" PRIu32 " flags:%" PRIu32 ")\n", index, planeID,
+             framebuffer->width, framebuffer->height, framebuffer->flags);
    }
 
    ret = 0;
